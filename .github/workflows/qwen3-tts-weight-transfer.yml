@@ -1,4 +1,4 @@
-name: Temporary Qwen3 TTS main model transfer
+name: Temporary Qwen3 TTS main model transfer in four parts
 on:
   push:
     branches:
@@ -10,22 +10,52 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Download public Qwen3 TTS main model
+      - name: Download and split public Qwen3 TTS model
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p weights
           curl --fail --location --retry 3 --connect-timeout 30 --max-time 1200 \
             'https://huggingface.co/TeALO/qwen3-tts-gguf/resolve/main/qwen3-tts-0.6b-q8_0.gguf?download=true' \
-            -o weights/qwen3-tts-0.6b-q8_0.gguf
-          test "$(stat -c %s weights/qwen3-tts-0.6b-q8_0.gguf)" -eq 1342925920
-          sha256sum weights/qwen3-tts-0.6b-q8_0.gguf | tee SHA256SUMS.txt
-      - name: Upload model transfer artifact
+            -o qwen3-tts-0.6b-q8_0.gguf
+          test "$(stat -c %s qwen3-tts-0.6b-q8_0.gguf)" -eq 1342925920
+          sha256sum qwen3-tts-0.6b-q8_0.gguf | tee SHA256SUMS.txt
+          split -b 400M -d -a 2 qwen3-tts-0.6b-q8_0.gguf weights/main.gguf.segment-
+          test "$(find weights -type f | wc -l)" -eq 4
+          sha256sum weights/* | tee PARTS_SHA256SUMS.txt
+      - name: Upload model segment 00
         uses: actions/upload-artifact@v4
         with:
-          name: qwen3-tts-main-q8-0
-          path: |
-            weights/qwen3-tts-0.6b-q8_0.gguf
-            SHA256SUMS.txt
+          name: qwen3-tts-main-part00
+          path: weights/main.gguf.segment-00
           retention-days: 1
           compression-level: 0
+      - name: Upload model segment 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-tts-main-part01
+          path: weights/main.gguf.segment-01
+          retention-days: 1
+          compression-level: 0
+      - name: Upload model segment 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-tts-main-part02
+          path: weights/main.gguf.segment-02
+          retention-days: 1
+          compression-level: 0
+      - name: Upload model segment 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-tts-main-part03
+          path: weights/main.gguf.segment-03
+          retention-days: 1
+          compression-level: 0
+      - name: Upload integrity manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-tts-main-checksums
+          path: |
+            SHA256SUMS.txt
+            PARTS_SHA256SUMS.txt
+          retention-days: 1
