@@ -1,0 +1,31 @@
+name: Temporary Qwen3 TTS tokenizer transfer
+on:
+  push:
+    branches:
+      - tools/qwen3-tts-drive-transfer-20261115
+permissions:
+  contents: read
+jobs:
+  fetch-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download public Qwen3 tokenizer model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p weights
+          curl --fail --location --retry 3 --connect-timeout 30 --max-time 720 \
+            'https://huggingface.co/TeALO/qwen3-tts-gguf/resolve/main/qwen3-tts-tokenizer-f16.gguf?download=true' \
+            -o weights/qwen3-tts-tokenizer-f16.gguf
+          test "$(stat -c %s weights/qwen3-tts-tokenizer-f16.gguf)" -eq 273327360
+          sha256sum weights/qwen3-tts-tokenizer-f16.gguf | tee SHA256SUMS.txt
+      - name: Upload model transfer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen3-tokenizer-f16
+          path: |
+            weights/qwen3-tts-tokenizer-f16.gguf
+            SHA256SUMS.txt
+          retention-days: 1
+          compression-level: 0
